@@ -32,8 +32,14 @@ defmodule Drift.Rooms do
 
   def find(code) when is_binary(code) do
     case Registry.lookup(Drift.RoomRegistry, String.upcase(String.trim(code))) do
-      [{pid, _}] -> {:ok, pid}
-      [] -> {:error, "Room not found. Check the code or create a new room."}
+      [{pid, _}] ->
+        # Registry removes terminated entries asynchronously; never return a dead room.
+        if Process.alive?(pid),
+          do: {:ok, pid},
+          else: {:error, "This room has closed. Create a new one."}
+
+      [] ->
+        {:error, "Room not found. Check the code or create a new room."}
     end
   end
 
