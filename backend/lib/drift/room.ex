@@ -173,7 +173,10 @@ defmodule Drift.Room do
     remaining = state.ttl_ms - (state.clock.() - state.last_activity)
 
     if remaining <= 0 do
-      Enum.each(state.players, fn {_, p} -> if p.socket, do: send(p.socket, :room_closed) end)
+      Enum.each(state.players, fn {_, p} ->
+        if p.socket, do: send(p.socket, {:room_closed, self()})
+      end)
+
       {:stop, :normal, state}
     else
       Process.send_after(self(), :check_expiry, remaining)
@@ -187,7 +190,8 @@ defmodule Drift.Room do
     player = Enum.find_value(state.players, fn {_, p} -> if p.token == token, do: p end)
 
     if player do
-      if player.socket && player.socket != socket, do: send(player.socket, :connection_replaced)
+      if player.socket && player.socket != socket,
+        do: send(player.socket, {:connection_replaced, self()})
 
       monitors =
         Enum.reduce(state.monitors, state.monitors, fn {ref, pid}, acc ->

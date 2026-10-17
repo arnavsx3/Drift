@@ -8,7 +8,7 @@ defmodule DriftWeb.GameLive do
 
   @impl true
   def mount(params, _session, socket) do
-    code = params |> Map.get("room", "") |> String.slice(0, 6) |> String.upcase()
+    code = input(params, "room") |> String.slice(0, 6) |> String.upcase()
 
     socket =
       assign(socket,
@@ -22,6 +22,8 @@ defmodule DriftWeb.GameLive do
         error: nil,
         sound: false,
         instructions: false,
+        event_count: 0,
+        event_window: System.monotonic_time(:millisecond),
         connected: connected?(socket)
       )
 
@@ -45,20 +47,37 @@ defmodule DriftWeb.GameLive do
   end
 
   @impl true
-  def handle_event("form", params, socket) do
+  def handle_event(event, params, socket) do
+    now = System.monotonic_time(:millisecond)
+
+    {count, window} =
+      if now - socket.assigns.event_window >= 2_000,
+        do: {1, now},
+        else: {socket.assigns.event_count + 1, socket.assigns.event_window}
+
+    socket = assign(socket, event_count: count, event_window: window)
+
+    if count > 40 do
+      {:noreply, assign(socket, :error, "Slow down a little. Try again in a moment.")}
+    else
+      player_event(event, params, socket)
+    end
+  end
+
+  defp player_event("form", params, socket) do
     {:noreply,
      assign(socket,
-       name: Map.get(params, "nickname", ""),
-       code: Map.get(params, "room-code", socket.assigns.code)
+       name: input(params, "nickname"),
+       code: input(params, "room-code", socket.assigns.code)
      )}
   end
 
-  def handle_event("mode", %{"mode" => mode}, socket) when mode in ["solo", "party", "join"],
+  defp player_event("mode", %{"mode" => mode}, socket) when mode in ["solo", "party", "join"],
     do: {:noreply, assign(socket, mode: mode, error: nil)}
 
-  def handle_event("enter", params, %{assigns: %{room_pid: nil}} = socket) do
-    name = Map.get(params, "nickname", "")
-    code = Map.get(params, "room-code", "")
+  defp player_event("enter", params, %{assigns: %{room_pid: nil}} = socket) do
+    name = input(params, "nickname")
+    code = input(params, "room-code")
 
     result =
       if socket.assigns.mode == "join" do
@@ -72,8 +91,8 @@ defmodule DriftWeb.GameLive do
     {:noreply, enter_result(socket, result, name)}
   end
 
-  def handle_event("action", %{"action" => action}, socket)
-      when action in ["start", "next", "stop"] do
+  defp player_event("action", %{"action" => action}, socket)
+       when action in ["start", "next", "stop"] do
     result =
       if socket.assigns.room_pid,
         do: Room.action(socket.assigns.room_pid, self(), action),
@@ -88,25 +107,25 @@ defmodule DriftWeb.GameLive do
     {:noreply, socket}
   end
 
-  def handle_event("leave", _, socket) do
+  defp player_event("leave", _, socket) do
     if socket.assigns.room_pid, do: Room.leave(socket.assigns.room_pid, self())
 
     {:noreply,
      socket |> clear_seat() |> assign(error: nil, code: "", mode: "solo") |> push_patch(to: "/")}
   end
 
-  def handle_event("dismiss", _, socket), do: {:noreply, assign(socket, :error, nil)}
+  defp player_event("dismiss", _, socket), do: {:noreply, assign(socket, :error, nil)}
 
-  def handle_event("instructions", _, socket),
+  defp player_event("instructions", _, socket),
     do: {:noreply, assign(socket, :instructions, not socket.assigns.instructions)}
 
-  def handle_event("close_instructions", _, socket),
+  defp player_event("close_instructions", _, socket),
     do: {:noreply, assign(socket, :instructions, false)}
 
-  def handle_event("sound", _, socket),
+  defp player_event("sound", _, socket),
     do: {:noreply, assign(socket, :sound, not socket.assigns.sound)}
 
-  def handle_event(_, _, socket), do: {:noreply, socket}
+  defp player_event(_, _, socket), do: {:noreply, socket}
 
   @impl true
   def handle_info({:room_state, room}, socket) do
@@ -118,18 +137,25 @@ defmodule DriftWeb.GameLive do
     end
   end
 
-  def handle_info(:connection_replaced, socket),
+  def handle_info({:connection_replaced, pid}, %{assigns: %{room_pid: pid}} = socket),
     do:
       {:noreply, socket |> clear_seat() |> assign(:error, "Your seat was opened in another tab.")}
 
-  def handle_info(:room_closed, socket),
+  def handle_info({:room_closed, pid}, %{assigns: %{room_pid: pid}} = socket),
     do:
       {:noreply, socket |> clear_seat() |> assign(:error, "That room closed. Start a fresh one.")}
 
   def handle_info({:DOWN, ref, :process, _, _}, %{assigns: %{room_ref: ref}} = socket),
-    do: handle_info(:room_closed, socket)
+    do: handle_info({:room_closed, socket.assigns.room_pid}, socket)
 
   def handle_info(_, socket), do: {:noreply, socket}
+
+  defp input(params, key, fallback \\ "") do
+    case Map.get(params, key, fallback) do
+      value when is_binary(value) -> value
+      _ -> fallback
+    end
+  end
 
   defp restore(socket, %{"code" => code, "token" => token, "name" => name})
        when is_binary(code) and is_binary(token) and is_binary(name) do

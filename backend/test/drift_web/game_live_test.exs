@@ -110,4 +110,34 @@ defmodule DriftWeb.GameLiveTest do
     assert has_element?(view, "[role=alert]", "Join a room first")
     assert has_element?(view, "#entry-form")
   end
+
+  test "malformed query and form values do not crash the LiveView" do
+    {:ok, view, _} = live(build_conn(), "/?room[]=invalid")
+    assert has_element?(view, "#entry-form")
+    render_change(view, "form", %{"nickname" => %{}, "room-code" => []})
+    assert has_element?(view, "#entry-form")
+    render_submit(view, "enter", %{"nickname" => []})
+    assert has_element?(view, "[role=alert]", "Choose a name")
+  end
+
+  test "browser event flooding is limited" do
+    {:ok, view, _} = live(build_conn(), "/")
+    for _ <- 1..41, do: render_click(view, "mode", %{"mode" => "solo"})
+    assert has_element?(view, "[role=alert]", "Slow down a little")
+    refute has_element?(view, "button", "Start practice")
+  end
+
+  test "stale room notifications cannot clear a newly created seat" do
+    {:ok, view, _} = live(build_conn(), "/")
+    view |> form("#entry-form", nickname: "First") |> render_submit()
+    assert_push_event(view, "save-seat", %{code: first_code})
+    {:ok, first_room} = Rooms.find(first_code)
+    view |> element("button", "Leave practice") |> render_click()
+    view |> form("#entry-form", nickname: "Second") |> render_submit()
+    send(view.pid, {:room_closed, first_room})
+    send(view.pid, {:connection_replaced, first_room})
+    assert render(view) =~ "Second"
+    assert has_element?(view, "button", "Start practice")
+    refute has_element?(view, "[role=alert]")
+  end
 end

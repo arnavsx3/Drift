@@ -114,7 +114,7 @@ defmodule DriftWeb.HomeComponents do
                 placeholder="ABC234"
                 maxlength={6}
                 minlength={6}
-                pattern="[A-Z2-9]{6}"
+                pattern="[A-Za-z2-9]{6}"
                 required
                 autocomplete="off"
                 spellcheck={false}
