@@ -108,6 +108,17 @@ defmodule Drift.RoomTest do
     assert {:ok, _} = Room.join(ctx.room, "Sam", ctx.guest_socket, ctx.guest.token)
   end
 
+  test "leaving a LiveView seat transfers host control without killing its process", ctx do
+    assert :ok = Room.leave(ctx.room, self())
+    snapshot = Room.snapshot(ctx.room)
+    assert snapshot.host_id == ctx.guest.player_id
+    refute Enum.find(snapshot.players, &(&1.id == ctx.host.player_id)).connected
+    assert {:error, _} = Room.action(ctx.room, self(), "start")
+    assert {:ok, identity} = Room.join(ctx.room, "Arnav", self(), ctx.host.token)
+    assert identity == ctx.host
+    assert Enum.find(Room.snapshot(ctx.room).players, &(&1.id == ctx.host.player_id)).connected
+  end
+
   test "solo rooms start with one player and reject a second seat" do
     room =
       start_supervised!({Room, code: "SOLO#{System.unique_integer([:positive])}", solo: true},

@@ -13,6 +13,7 @@ defmodule Drift.Room do
 
   def join(pid, name, socket, token \\ nil), do: call(pid, {:join, name, socket, token})
   def action(pid, socket, action), do: call(pid, {:action, socket, action})
+  def leave(pid, socket), do: call(pid, {:leave, socket})
   def snapshot(pid), do: call(pid, :snapshot)
 
   defp call(pid, message) do
@@ -52,6 +53,22 @@ defmodule Drift.Room do
 
   @impl true
   def handle_call(:snapshot, _from, state), do: {:reply, public(state), state}
+
+  def handle_call({:leave, socket}, _from, state) do
+    monitors =
+      Enum.reduce(state.monitors, state.monitors, fn {ref, pid}, acc ->
+        if pid == socket do
+          Process.demonitor(ref, [:flush])
+          Map.delete(acc, ref)
+        else
+          acc
+        end
+      end)
+
+    state = disconnect(%{state | monitors: monitors}, socket)
+    broadcast(state)
+    {:reply, :ok, state}
+  end
 
   def handle_call({:join, name, socket, token}, _from, state) do
     cond do
@@ -143,13 +160,7 @@ defmodule Drift.Room do
 
   def handle_info({:DOWN, ref, :process, socket, _}, state) do
     if Map.get(state.monitors, ref) == socket do
-      players =
-        Map.new(state.players, fn {id, p} ->
-          {id, if(p.socket == socket, do: %{p | socket: nil}, else: p)}
-        end)
-
-      state =
-        %{state | players: players, monitors: Map.delete(state.monitors, ref)} |> choose_host()
+      state = disconnect(%{state | monitors: Map.delete(state.monitors, ref)}, socket)
 
       broadcast(state)
       {:noreply, state}
@@ -315,6 +326,15 @@ defmodule Drift.Room do
 
       %{state | host_id: if(next, do: next.id, else: nil)}
     end
+  end
+
+  defp disconnect(state, socket) do
+    players =
+      Map.new(state.players, fn {id, p} ->
+        {id, if(p.socket == socket, do: %{p | socket: nil}, else: p)}
+      end)
+
+    %{state | players: players} |> choose_host()
   end
 
   defp public(state) do
