@@ -6,15 +6,24 @@ const STORAGE = 'drift.seat'
 function loadSeat(): Seat | null {
   try {
     const value = JSON.parse(sessionStorage.getItem(STORAGE) || 'null')
-    return value && typeof value.code === 'string' && typeof value.token === 'string'
-      && typeof value.player_id === 'string' && typeof value.name === 'string' ? value : null
-  } catch { return null }
+    return value &&
+      typeof value.code === 'string' &&
+      typeof value.token === 'string' &&
+      typeof value.player_id === 'string' &&
+      typeof value.name === 'string'
+      ? value
+      : null
+  } catch {
+    return null
+  }
 }
 
 export function useGame() {
   const [room, setRoom] = useState<Room | null>(null)
   const [seat, setSeat] = useState<Seat | null>(loadSeat)
-  const [connection, setConnection] = useState<'connecting' | 'connected' | 'offline'>('connecting')
+  const [connection, setConnection] = useState<
+    'connecting' | 'connected' | 'offline'
+  >('connecting')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [startAt, setStartAt] = useState(0)
@@ -30,7 +39,11 @@ export function useGame() {
     roomRef.current = null
     setSeat(null)
     setRoom(null)
-    try { sessionStorage.removeItem(STORAGE) } catch { /* Memory-only play still works. */ }
+    try {
+      sessionStorage.removeItem(STORAGE)
+    } catch {
+      /* Memory-only play still works. */
+    }
   }, [])
 
   useEffect(() => {
@@ -48,38 +61,65 @@ export function useGame() {
       socketRef.current = ws
 
       ws.onopen = () => {
-        if (!alive) { ws.close(); return }
+        if (!alive) {
+          ws.close()
+          return
+        }
         attempt = 0
         setConnection('connected')
         const saved = seatRef.current
         if (saved) {
           restoringRef.current = true
           setBusy(true)
-          ws.send(JSON.stringify({ type: 'join', code: saved.code, name: saved.name, token: saved.token }))
+          ws.send(
+            JSON.stringify({
+              type: 'join',
+              code: saved.code,
+              name: saved.name,
+              token: saved.token,
+            }),
+          )
         }
         heartbeat = setInterval(() => {
-          if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ping' }))
+          if (ws.readyState === WebSocket.OPEN)
+            ws.send(JSON.stringify({ type: 'ping' }))
         }, 20_000)
       }
 
-      ws.onmessage = event => {
+      ws.onmessage = (event) => {
         if (!alive) return
         let message
-        try { message = JSON.parse(event.data) } catch { return }
+        try {
+          message = JSON.parse(event.data)
+        } catch {
+          return
+        }
         if (message.type === 'joined') {
-          const next: Seat = { code: message.code, player_id: message.player_id, token: message.token,
-            name: nameRef.current || seatRef.current?.name || 'Player' }
+          const next: Seat = {
+            code: message.code,
+            player_id: message.player_id,
+            token: message.token,
+            name: nameRef.current || seatRef.current?.name || 'Player',
+          }
           seatRef.current = next
           setSeat(next)
           restoringRef.current = false
           setBusy(false)
           setError('')
-          try { sessionStorage.setItem(STORAGE, JSON.stringify(next)) } catch { /* Optional persistence. */ }
+          try {
+            sessionStorage.setItem(STORAGE, JSON.stringify(next))
+          } catch {
+            /* Optional persistence. */
+          }
         } else if (message.type === 'state') {
           const next = message.room as Room
           const previous = roomRef.current
-          if (next.starts_in_ms !== null && (!previous || previous.round !== next.round
-            || (next.phase === 'countdown' && previous.phase !== 'countdown'))) {
+          if (
+            next.starts_in_ms !== null &&
+            (!previous ||
+              previous.round !== next.round ||
+              (next.phase === 'countdown' && previous.phase !== 'countdown'))
+          ) {
             setStartAt(performance.now() + next.starts_in_ms)
           }
           roomRef.current = next
@@ -88,11 +128,14 @@ export function useGame() {
         } else if (message.type === 'error') {
           setError(message.message)
           setBusy(false)
-          if (restoringRef.current) { restoringRef.current = false; clearSeat() }
+          if (restoringRef.current) {
+            restoringRef.current = false
+            clearSeat()
+          }
         }
       }
 
-      ws.onclose = event => {
+      ws.onclose = (event) => {
         clearInterval(heartbeat)
         if (!alive) return
         setBusy(false)
@@ -103,9 +146,16 @@ export function useGame() {
         roomRef.current = null
         if (event.code === 4001 || event.code === 4002) {
           clearSeat()
-          setError(event.code === 4001 ? 'Your seat was opened in another tab.' : 'That room closed. Start a fresh one.')
+          setError(
+            event.code === 4001
+              ? 'Your seat was opened in another tab.'
+              : 'That room closed. Start a fresh one.',
+          )
         }
-        retry = setTimeout(connect, deliberate ? 0 : Math.min(500 * 2 ** attempt++, 10_000))
+        retry = setTimeout(
+          connect,
+          deliberate ? 0 : Math.min(500 * 2 ** attempt++, 10_000),
+        )
       }
       ws.onerror = () => ws.close()
     }
@@ -129,14 +179,25 @@ export function useGame() {
     return true
   }, [])
 
-  const enter = useCallback((name: string, mode: 'solo' | 'party' | 'join', code: string) => {
-    nameRef.current = name.trim()
-    if (!nameRef.current) { setError('Give yourself a name first.'); return }
-    const message = mode === 'join'
-      ? { type: 'join', name: nameRef.current, code: code.trim().toUpperCase() }
-      : { type: 'create', name: nameRef.current, solo: mode === 'solo' }
-    if (send(message)) setBusy(true)
-  }, [send])
+  const enter = useCallback(
+    (name: string, mode: 'solo' | 'party' | 'join', code: string) => {
+      nameRef.current = name.trim()
+      if (!nameRef.current) {
+        setError('Give yourself a name first.')
+        return
+      }
+      const message =
+        mode === 'join'
+          ? {
+              type: 'join',
+              name: nameRef.current,
+              code: code.trim().toUpperCase(),
+            }
+          : { type: 'create', name: nameRef.current, solo: mode === 'solo' }
+      if (send(message)) setBusy(true)
+    },
+    [send],
+  )
 
   const leave = useCallback(() => {
     leavingRef.current = true
@@ -149,5 +210,16 @@ export function useGame() {
     window.history.replaceState(null, '', url)
   }, [clearSeat])
 
-  return { room, seat, connection, error, busy, startAt, enter, leave, send, dismissError: () => setError('') }
+  return {
+    room,
+    seat,
+    connection,
+    error,
+    busy,
+    startAt,
+    enter,
+    leave,
+    send,
+    dismissError: () => setError(''),
+  }
 }

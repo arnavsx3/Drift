@@ -38,8 +38,12 @@ export interface Seat {
 }
 
 export const seconds = (ms: number) => (ms / 1000).toFixed(2)
-export const driftLabel = (error: number) => error === 0 ? 'Right on time' : `${seconds(error)}s off`
+export const driftLabel = (error: number) =>
+  error === 0 ? 'Right on time' : `${seconds(error)}s off`
 
 export function rankPlayers(players: Player[]) {
-  return [...players].sort((a, b) => a.total_error_ms - b.total_error_ms || a.name.localeCompare(b.name))
+  return [...players].sort(
+    (a, b) =>
+      a.total_error_ms - b.total_error_ms || a.name.localeCompare(b.name),
+  )
 }
