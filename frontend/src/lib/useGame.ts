@@ -23,6 +23,7 @@ export function useGame() {
   const roomRef = useRef<Room | null>(null)
   const nameRef = useRef(seat?.name || '')
   const restoringRef = useRef(false)
+  const leavingRef = useRef(false)
 
   const clearSeat = useCallback(() => {
     seatRef.current = null
@@ -95,14 +96,16 @@ export function useGame() {
         clearInterval(heartbeat)
         if (!alive) return
         setBusy(false)
-        setConnection('offline')
+        const deliberate = leavingRef.current
+        leavingRef.current = false
+        setConnection(deliberate ? 'connecting' : 'offline')
         // Re-anchor the clock from the next room snapshot after a reconnect.
         roomRef.current = null
         if (event.code === 4001 || event.code === 4002) {
           clearSeat()
-          setError(event.code === 4001 ? 'Your seat was opened in another tab.' : 'That room expired. Start a fresh one.')
+          setError(event.code === 4001 ? 'Your seat was opened in another tab.' : 'That room closed. Start a fresh one.')
         }
-        retry = setTimeout(connect, Math.min(500 * 2 ** attempt++, 10_000))
+        retry = setTimeout(connect, deliberate ? 0 : Math.min(500 * 2 ** attempt++, 10_000))
       }
       ws.onerror = () => ws.close()
     }
@@ -136,6 +139,7 @@ export function useGame() {
   }, [send])
 
   const leave = useCallback(() => {
+    leavingRef.current = true
     clearSeat()
     setError('')
     setBusy(false)

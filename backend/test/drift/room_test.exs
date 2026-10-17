@@ -146,6 +146,17 @@ defmodule Drift.RoomTest do
     assert {:error, _} = Drift.Rooms.find("NOTREAL")
   end
 
+  test "a failed room does not affect another room or recreate an empty match", ctx do
+    code = "OTHER#{System.unique_integer([:positive])}"
+    other = start_supervised!({Room, code: code, solo: true}, id: :other)
+    {:ok, _} = Room.join(other, "Other", self())
+    monitor = Process.monitor(ctx.room)
+    Process.exit(ctx.room, :kill)
+    assert_receive {:DOWN, ^monitor, :process, _, :killed}
+    assert {:error, _} = Drift.Rooms.find(ctx.host.code)
+    assert Room.snapshot(other).phase == :lobby
+  end
+
   defp wait_for(check, remaining \\ 20)
   defp wait_for(_, 0), do: flunk("condition did not become true")
 

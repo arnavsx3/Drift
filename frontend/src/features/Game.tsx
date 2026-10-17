@@ -122,7 +122,7 @@ export function Game({ game, sound }: { game: GameState, sound: boolean }) {
         <div className="player-list">{rankPlayers(room.players).map((p, i) => <div className="player-row" key={p.id}>
           <div className={`avatar tone-${i % 4}`}>{p.name.slice(0, 1).toUpperCase()}<span className={p.connected ? 'online-dot' : 'offline-dot'} /></div>
           <div className="player-name"><strong>{p.name}{p.id === seat.player_id && <small>you</small>}</strong>
-            <span>{!p.connected ? 'Reconnecting…' : room.phase === 'lobby' ? 'Ready for a little drift' : p.stopped ? 'Guess locked in' : 'Finding their rhythm'}</span></div>
+            <span>{!p.connected ? 'Reconnecting…' : room.phase === 'lobby' ? 'Ready for a little drift' : room.phase === 'finished' ? `${p.wins} round ${p.wins === 1 ? 'win' : 'wins'}` : p.stopped ? 'Guess locked in' : room.phase === 'reveal' ? 'Missed this round' : 'Finding their rhythm'}</span></div>
           <span className="player-badge">{room.phase === 'lobby' ? p.id === room.host_id && <Crown size={16} /> : `${seconds(p.total_error_ms)}s`}</span>
         </div>)}</div>
         {!room.solo && room.phase === 'lobby' && <button className="invite-slot" onClick={copy}><span>+</span>There’s room for your friends</button>}

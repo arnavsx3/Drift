@@ -38,14 +38,24 @@ defmodule DriftWeb.Socket do
     do: {:reply, {:close, 4001, "Connected in another tab"}, state}
 
   def websocket_info(:room_closed, state), do: {:reply, {:close, 4002, "Room expired"}, state}
+
+  def websocket_info({:DOWN, ref, :process, _pid, _reason}, %{room_ref: ref} = state),
+    do: {:reply, {:close, 4002, "Room closed"}, state}
+
   def websocket_info(_, state), do: {:ok, state}
 
   defp dispatch(%{"type" => "ping"}, state), do: reply(%{type: "pong"}, state)
 
   defp dispatch(%{"type" => "create", "name" => name} = message, %{room: nil} = state) do
     case Rooms.create(name, self(), solo: Map.get(message, "solo", false) == true) do
-      {:ok, pid, identity} -> reply(Map.put(identity, :type, "joined"), %{state | room: pid})
-      {:error, message} -> error(message, state)
+      {:ok, pid, identity} ->
+        reply(
+          Map.put(identity, :type, "joined"),
+          Map.merge(state, %{room: pid, room_ref: Process.monitor(pid)})
+        )
+
+      {:error, message} ->
+        error(message, state)
     end
   end
 
@@ -55,7 +65,10 @@ defmodule DriftWeb.Socket do
        ) do
     with {:ok, pid} <- Rooms.find(code),
          {:ok, identity} <- Room.join(pid, name, self(), Map.get(message, "token")) do
-      reply(Map.put(identity, :type, "joined"), %{state | room: pid})
+      reply(
+        Map.put(identity, :type, "joined"),
+        Map.merge(state, %{room: pid, room_ref: Process.monitor(pid)})
+      )
     else
       {:error, message} -> error(message, state)
     end
