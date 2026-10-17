@@ -1,40 +1,46 @@
 # Architecture
 
-Drift is an Elixir/OTP application with a React + Vite frontend. Cowboy handles HTTP and WebSockets directly; there is no Phoenix application or database.
+Drift is an Elixir/OTP application using Phoenix LiveView. Elixir owns the game and renders the interface. Cowboy and Plug provide Phoenix's HTTP/WebSocket transport. There is no database.
 
 ```mermaid
 flowchart TD
-    Browser[React browser client] <-->|WebSocket messages| Cowboy[Cowboy]
-    Cowboy --> Socket[One handler per connection]
-    Socket --> Room[One GenServer per room]
+    Browser[Browser and small JavaScript hooks] <-->|LiveView WebSocket| Endpoint[Phoenix Endpoint]
+    Endpoint --> LiveView[One LiveView process per browser]
+    LiveView <-->|Calls and room snapshots| Room[One GenServer per room]
+    LiveView --> Components[Elixir HEEx function components]
     Supervisor[Drift.Supervisor] --> Registry[Room registry]
     Supervisor --> Dynamic[Dynamic room supervisor]
-    Supervisor --> Cowboy
+    Supervisor --> PubSub[Phoenix PubSub]
+    Supervisor --> Endpoint
     Dynamic --> Room
     Room --> Registry
 ```
 
 ## Ownership
 
-- `Drift.Application` starts the supervision tree.
-- `Drift.Rooms` creates temporary room processes and resolves join codes.
-- `Drift.Room` owns players, round state, timers, and scores. Its mailbox serializes competing player actions.
-- `DriftWeb.Socket` validates messages, tracks a connection's room, and forwards public state to that client. It monitors the room and closes the connection if the room disappears.
-- `DriftWeb.Server` starts Cowboy and serves the built frontend alongside `/ws` and `/health`.
-- React's `useGame` manages the connection, heartbeat, seat credentials, and reconnect backoff. The game feature renders server-owned state and a local visual clock.
+- `Drift.Application` starts the registry, room supervisor, Phoenix PubSub, and endpoint.
+- `Drift.Rooms` creates bounded, temporary rooms and resolves join codes.
+- `Drift.Room` owns players, countdowns, round deadlines, private submissions, scoring, and host transfer. Its mailbox serializes competing actions.
+- `DriftWeb.Endpoint` serves generated assets and exposes LiveView's `/live` transport. `DriftWeb.Router` applies session, CSRF, and secure-header protection.
+- `DriftWeb.GameLive` manages one browser's seat, form state, UI actions, room monitor, and reconnect restoration. It calls the room with its own process identity and receives public snapshots as Elixir messages.
+- `DriftWeb.HomeComponents`, `MatchComponents`, `ResultsComponents`, and `UIComponents` render the screens using HEEx inside Elixir modules. `Presentation` supplies ranking, labels, and timeline positions.
+- `assets/src/app.js` contains LiveView hooks for the animated clock, sound, clipboard, modal focus, and session storage. These browser APIs need a small JavaScript layer. They never decide scores.
+- Vite builds the hook bundle and Tailwind stylesheet into ignored `backend/priv/static` files. There is no React application or separate frontend server.
 
 ## Failure boundaries
 
-Each room is a temporary supervised child. A room failure affects that match rather than intentionally recreating an empty match under the same code. Other rooms remain available. A backend restart clears all rooms.
+Each room is a temporary supervised child. A failure affects that match; the supervisor does not recreate an empty room under the same code. Other rooms remain available. A backend restart clears rooms.
 
-Player sockets are monitored by their room. Disconnects mark seats offline and transfer host control. A secret resume token recovers a seat and invalidates any prior connection to it. Tokens live in session storage and are never included in public room snapshots or invite URLs.
+Rooms monitor the LiveView processes occupying their seats. A disconnect marks the seat offline and transfers host control to a connected player. Explicit leave detaches the seat while keeping the LiveView alive on the home screen. A secret resume token restores the same seat and invalidates its previous connection.
+
+The token lives in session storage for that tab, never in public snapshots or invite links. The LiveView client sends it as a connection parameter on reconnect or refresh. An invite to a different room takes precedence over the saved seat. Expired rooms and replaced connections clear the saved seat.
 
 ## Timing
 
-The server schedules a three-second countdown using its monotonic clock. It records elapsed time when it receives `stop`. Client animations do not determine scores. A finite deadline finishes each round even if a player leaves or never submits.
+The room schedules a three-second countdown using its monotonic clock. The server records elapsed time when it receives a stop action. Browser animation does not determine scores. A finite deadline ends the round even when a player disconnects or never submits.
 
-Network delay influences both the start animation and stop receipt time. The application makes no claim of competitive, latency-neutral timing. Protocol and scoring details are in [protocol.md](protocol.md).
+The browser anchors its animation from `starts_in_ms` on a new round or remount. Animation frames update the local dial without WebSocket traffic. Network latency influences both the displayed start and stop receipt time; Drift is a casual timing game. See [protocol.md](protocol.md).
 
 ## Deliberate limits
 
-The first version uses one server and in-memory room state. It does not provide accounts, permanent match history, cross-node room coordination, or protection against a player using an external clock or a scripted client. The frontend loads optional Google Fonts; system fonts remain available if that request fails.
+One server, in-memory matches, eight players per private room, and at most 500 active rooms. No accounts, permanent history, cross-node room ownership, or protection against external clocks and scripted clients. Google Fonts are optional; the stylesheet supplies system fallbacks.

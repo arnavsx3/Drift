@@ -34,7 +34,7 @@ jobs:
           mix local.rebar --force
       - name: Install dependencies
         run: make setup
-      - name: Check formatting, tests, build, and frontend dependencies
+      - name: Check formatting, tests, build, and browser asset dependencies
         run: make check
       - name: Install test browser
         run: npx playwright install --with-deps chromium

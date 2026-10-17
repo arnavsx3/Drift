@@ -20,7 +20,7 @@ fi
 
 (cd "$DRIFT_ROOT/assets" && npm run build)
 
-echo "Starting Drift at http://127.0.0.1:4000 — press Ctrl+C to stop the server and asset watcher."
+echo "Starting Drift at http://127.0.0.1:${PORT:-4000} — press Ctrl+C to stop the server and asset watcher."
 (cd "$DRIFT_ROOT/backend" && exec mix run --no-halt) &
 BACKEND_PID=$!
 (cd "$DRIFT_ROOT/assets" && exec node node_modules/vite/bin/vite.js build --watch) &

@@ -1,47 +1,57 @@
-# WebSocket protocol
+# LiveView and room messages
 
-Connect to `/ws` on the backend. Send one JSON object per text frame. Each connection occupies at most one player seat.
+The browser uses Phoenix LiveView's `/live/websocket` transport. Phoenix handles joins, heartbeats, reconnects, and HTML diffs. The former custom `/ws` JSON protocol has been removed. Application code uses LiveView events and Elixir messages between processes.
 
-## Client messages
+## Browser events
 
-| Message | Fields | Effect |
+| Event | Fields | Effect |
 | --- | --- | --- |
-| `create` | `name`, `solo` (boolean) | Create a room and take its host seat |
-| `join` | `code`, `name`, optional `token` | Join a lobby, or reconnect to a previous seat |
-| `start` | — | Host starts a new five-round match |
-| `stop` | — | Lock the sender's guess using server receipt time |
-| `next` | — | Host advances after a round reveal |
-| `ping` | — | Keep the connection alive; server returns `pong` |
+| `form` | `nickname`, optional `room-code` | Keep entry form state in the LiveView |
+| `mode` | `mode`: `solo`, `party`, or `join` | Choose how to enter |
+| `enter` | `nickname`, optional `room-code` | Create or join a room |
+| `action` | `action`: `start`, `stop`, or `next` | Send a validated game action to the room |
+| `leave` | — | Detach the seat and return home |
+| `instructions`, `close_instructions` | — | Open or close the help dialog |
+| `sound` | — | Toggle optional countdown audio |
+| `dismiss` | — | Clear a displayed error |
 
-Names must contain 1–20 characters after trimming. Rooms support one solo player or up to eight party players. Party matches need at least two connected players to start. New players may join before a match or after it finishes.
+The room validates names (nonblank, at most 20 characters), capacity, membership, host permissions, and phase. Party rooms require two connected players to start and support at most eight players. Solo rooms hold one player. New players may enter a lobby or a finished match.
 
-## Server messages
+## Seat credentials
 
-- `joined`: `code`, `player_id`, and a private `token`. Store the token in session storage and send it with `join` after reconnecting. It is a bearer credential; do not put it in share links.
-- `state`: a public `room` snapshot, including phase, target, players, and results.
-- `error`: a user-facing `message`.
-- `pong`: heartbeat acknowledgement.
+After joining, LiveView pushes a `save-seat` event containing `code`, `player_id`, `token`, and `name`. A browser hook stores it under `drift.seat` in session storage. The token is a bearer credential; never include it in invite URLs or public snapshots.
 
-Phases are `lobby → countdown → playing → reveal`, repeating until the final `finished` phase. Countdown lasts three seconds. `starts_in_ms` is the remaining time until the scheduled start; negative values indicate elapsed time. Results stay empty until reveal. The public state never contains resume tokens or another player's unrevealed guess.
+On refresh or reconnect, the LiveView client supplies the saved seat in its connection parameters. The new LiveView process calls `Room.join/4` with that token. The room replaces the previous process occupying the seat and preserves its score. An invite to another room overrides a saved seat.
+
+The `clear-seat` event removes the stored credential after explicit leave, a failed restore, room expiry/failure, or seat replacement. Storage is optional; without it, play works for the current connection but refresh recovery is unavailable.
+
+## Elixir process messages
+
+A LiveView invokes the room through its public functions:
+
+```elixir
+{:ok, room_pid, identity} = Drift.Rooms.create("Arnav", self(), solo: true)
+:ok = Drift.Room.action(room_pid, self(), "start")
+snapshot = Drift.Room.snapshot(room_pid)
+:ok = Drift.Room.leave(room_pid, self())
+```
+
+The room sends `{:room_state, snapshot}` to each connected player's LiveView. The snapshot contains phase, round, target, public player status, and revealed results. Results stay empty until the reveal; private submissions and resume tokens are never included.
+
+Lifecycle notifications carry the originating room PID: `{:connection_replaced, room_pid}` and `{:room_closed, room_pid}`. The LiveView also monitors its room. Notifications from a former room are ignored after the player switches rooms.
 
 ## Scoring and timing
 
-Targets are 5, 6, 7, 8, and 10 seconds, shuffled once per room. A round ends when everyone stops or eight seconds after the target. Missing the deadline incurs a 20-second error penalty. Closest guesses share round wins; the lowest cumulative absolute error wins the match. Exact cumulative ties share the match win.
+Phases are `lobby → countdown → playing → reveal`, repeating until `finished`. Targets are 5, 6, 7, 8, and 10 seconds, shuffled once per room. Each round starts with a three-second countdown. `starts_in_ms` is relative to the room's monotonic clock; negative values indicate elapsed time.
 
-The backend uses its monotonic clock and receives no client-supplied elapsed value. Network travel time contributes to results. This is a casual timing game, not a latency-neutral competition; play on a stable connection. The browser's local animation is approximate and does not determine the score.
+The browser dial stays visible for 1.5 seconds and then hides. JavaScript animates that dial locally, without sending messages on every frame. The server accepts no client-supplied elapsed time: a stop's receipt time determines the score.
 
-## Room lifecycle
+A round ends when everyone stops or eight seconds after the target. Missing the deadline adds a 20-second absolute error. Closest valid guesses share round wins. Lowest cumulative absolute error wins the match; exact cumulative ties share the win. Network delay contributes to results, so use a stable connection.
 
-One registered `GenServer` owns each room, under a `DynamicSupervisor`. A disconnected player's seat remains available through their token. A resumed connection replaces its predecessor. Host control transfers to a connected player when the host disconnects. Disconnected seats are removed when the next match starts.
+## Room lifecycle and transport limits
 
-Rooms expire after 15 minutes without game activity. Heartbeats do not extend the lifetime. Rooms and scores are in memory: expiry, a room crash, or a server restart clears them. Room processes use `restart: :temporary` so a failed room is not silently recreated with an empty match.
+Each registered room is a temporary child of a `DynamicSupervisor`. Disconnect marks a seat offline and transfers host control. Tokens recover those seats; offline seats are removed when the next match starts. Rooms expire after 15 minutes without game activity, and heartbeats do not extend that lifetime. A room failure or server restart clears its in-memory state.
 
-## Transport limits
+The endpoint permits 4 KiB WebSocket frames. The LiveView handles at most 40 application events per two-second window; Phoenix heartbeats are handled by the framework. The server allows up to 500 active rooms. Browser origins must match `ALLOWED_ORIGINS`, and LiveView uses the endpoint's signed session and CSRF protection.
 
-- 4 KiB maximum WebSocket frame size.
-- 40 text messages per connection per two-second window.
-- 60-second socket idle timeout; clients send heartbeats every 20 seconds.
-- Up to 500 room processes per server.
-- Browser origins must match `ALLOWED_ORIGINS`.
-
-These are development defaults, not a substitute for a reverse proxy and global connection limits on an internet-facing service.
+These per-connection limits supplement the connection limits of a deployed reverse proxy.

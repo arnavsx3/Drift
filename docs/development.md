@@ -2,11 +2,9 @@
 
 ## Requirements
 
-Validated on Ubuntu with Elixir 1.18.3, Erlang/OTP 27, and Node.js 24.21.0. Erlang/OTP 27 and Elixir 1.18 or later are required because the backend uses Elixir's built-in JSON module. Node.js 22.12+ is required by the frontend tooling; Node.js 24 is used in CI.
+Elixir 1.18.3, Erlang/OTP 27, and Node.js 24 are the development and CI versions. Node.js 22.12+ works with the asset tooling. npm, Git, Make, and Bash 4.3+ are also used.
 
-You also need npm, Git, Make, and Bash 4.3+ for the combined development script. Individual server commands work without Make or the script.
-
-Install Hex and Rebar once for your user if needed:
+Phoenix and LiveView are project dependencies installed by Mix; no global Phoenix installation is required. Hex and Rebar are installed once per user:
 
 ```sh
 mix local.hex --force
@@ -22,31 +20,32 @@ make setup
 make dev
 ```
 
-Open http://127.0.0.1:5173. Ctrl+C stops both servers. Development defaults are frontend port 5173 and backend port 4000.
+Open http://127.0.0.1:4000. The helper first builds browser assets, then runs Phoenix and Vite's asset watcher. Ctrl+C stops both processes. Vite builds files on disk and does not listen on a separate development port.
 
-Alternatively, run these in separate terminals:
+Restart `make dev` after editing Elixir source. Browser-hook and Tailwind changes rebuild automatically; refresh the page to load them. There is no development-only LiveReload dependency.
+
+To run the two processes separately, build once, then use separate terminals:
+
+```sh
+cd assets
+npm run build
+npm run dev
+```
 
 ```sh
 cd backend
 mix run --no-halt
 ```
 
-```sh
-cd frontend
-npm run dev
-```
+## Interface and assets
 
-Vite proxies `/ws` and `/health` to the backend. Its fixed port prevents silently moving to a port rejected by the backend's origin check.
+Elixir UI components are under `backend/lib/drift_web/components`. Keep game rules in `backend/lib/drift`; keep LiveView event handling and presentation under `backend/lib/drift_web`.
 
-## Frontend styling
+Tailwind 4 integrates with Vite in `assets/vite.config.js`. `assets/src/tailwind.css` contains the Tailwind import, shared theme tokens, and an explicit source directive scanning Elixir UI modules. Use complete utility names so Tailwind can detect them. Computed timeline positions use a CSS variable.
 
-Tailwind CSS 4 is integrated through `@tailwindcss/vite` in `frontend/vite.config.ts`. Components use utility classes for layouts, responsive breakpoints, interaction states, and reduced-motion support.
+The small `assets/src/app.js` file contains browser hooks. Phoenix JavaScript packages are local file dependencies pointing at the exact versions in `backend/deps`, keeping browser and server versions in sync. Run `make setup` after changing Mix dependencies.
 
-`frontend/src/tailwind.css` is the stylesheet entry: it contains only the Tailwind import and shared colour/font theme tokens. The old handwritten `style.css` has been removed. Fonts are loaded from the document head, with system fallbacks.
-
-Player colours use complete, static class strings in `frontend/src/lib/appearance.ts` so Tailwind can detect every option at build time. Avoid constructing utility names from partial strings. The results timeline passes its computed horizontal position through a CSS variable consumed by a Tailwind positioning utility.
-
-Prettier's Tailwind plugin sorts utility classes using the project's theme. Browser tests use dedicated test IDs for game results rather than styling class names.
+Generated bundles are written to `backend/priv/static` and are not committed. There is no React, React DOM, TypeScript application, or HTML entry file to maintain. Playwright specs use TypeScript for browser testing.
 
 ## Verification
 
@@ -54,39 +53,41 @@ Prettier's Tailwind plugin sorts utility classes using the project's theme. Brow
 make check
 ```
 
-This checks Elixir and frontend formatting, compiles with warnings treated as errors, runs backend and frontend unit tests, builds the frontend, and audits its dependencies. Run `mix format` in `backend` or `npm run format` in `frontend` to apply the formatters.
+Checks Elixir and asset formatting, compiles with warnings treated as errors, runs room and LiveView integration tests, builds assets, and audits npm dependencies. Apply formatting with `mix format` in `backend` and `npm run format` in `assets`.
 
-For browser tests, install Playwright's Chromium once, then run:
+For browser tests:
 
 ```sh
-cd frontend
+cd assets
 npx playwright install chromium
 cd ..
 make e2e
 ```
 
-On a fresh Linux environment, Playwright may also require system libraries; its `npx playwright install --with-deps chromium` command installs them. The browser download is for automated testing and is not required to run or play Drift.
+Playwright may need system libraries on a fresh Linux environment (`npx playwright install --with-deps chromium`). These browser dependencies are only needed for automated tests.
 
-The browser suite starts its own servers when ports 4000 and 5173 are free. Locally, it reuses existing servers on those ports. Stop and restart the backend after editing Elixir source; Vite reloads frontend changes automatically.
+The browser suite builds assets and starts Phoenix on port 4000. Locally it reuses a server already on that port; restart it before testing changed Elixir source. The suite checks complete solo matches, rematches, multiplayer, private guesses, refresh restoration, host handoff, responsive layouts, and rejected origins.
 
-## Serve the built application
+## Production mode
 
 ```sh
 make build
 cd backend
+export SECRET_KEY_BASE="$(mix phx.gen.secret)"
 MIX_ENV=prod mix run --no-halt
 ```
 
-Open http://127.0.0.1:4000. Cowboy serves `frontend/dist`, HTTP health checks, and WebSockets from the same origin. Keep the repository layout intact; this is a source-checkout run mode, not a relocatable OTP release.
+Open http://127.0.0.1:4000. Keep the repository layout intact; this is source-checkout run mode, not a relocatable OTP release. In a deployed environment, generate the secret once and retain it in your environment configuration. Production startup fails clearly if it is missing.
 
 ## Configuration
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `PORT` | `4000` | Cowboy listener port |
-| `ALLOWED_ORIGINS` | localhost and 127.0.0.1 on ports 4000 and 5173 | Comma-separated browser origins permitted to connect to `/ws` |
+| `PORT` | `4000` | Phoenix/Cowboy listener port |
+| `ALLOWED_ORIGINS` | localhost and 127.0.0.1 on port 4000 | Comma-separated origins permitted to connect to LiveView |
+| `SECRET_KEY_BASE` | Ephemeral random secret in development/test; required in production | Signs the browser session and LiveView tokens |
 
-For a deployed origin, set `ALLOWED_ORIGINS` explicitly to the full origin, including scheme and any nonstandard port. Public hosting also needs HTTPS/WSS, a WebSocket-capable reverse proxy, and appropriate global connection limits. No hosted deployment is configured in this repository.
+Set `ALLOWED_ORIGINS` explicitly when changing the port or using a deployed origin. The listener binds to loopback; expose it through a WebSocket-capable reverse proxy when deploying. Public hosting needs HTTPS/WSS and appropriate connection limits. No hosted deployment is configured.
 
 ## Dependency advisory
 
