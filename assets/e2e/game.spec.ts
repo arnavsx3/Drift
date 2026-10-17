@@ -86,6 +86,9 @@ test('two players share a room, keep guesses private, reconnect, and transfer ho
     ).toBeEnabled()
     await host.getByRole('button', { name: 'STOP THE CLOCK' }).click()
     await expect(host.getByRole('button', { name: 'Locked in' })).toBeDisabled()
+    await expect(host.locator('#round-clock [data-clock-value]')).toHaveText(
+      '✓',
+    )
     await expect(host.getByRole('button', { name: 'Locked in' })).toHaveCSS(
       'background-color',
       'rgb(233, 236, 228)',
@@ -222,4 +225,30 @@ test('Phoenix serves the built app and rejects an untrusted browser origin', asy
   await expect(
     page.getByRole('button', { name: 'Start practice' }),
   ).toBeEnabled()
+})
+
+test('invite copying offers a fallback and the home button detaches the seat', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: {
+        writeText: () => Promise.reject(new Error('Clipboard blocked')),
+      },
+    })
+  })
+  await page.goto('/')
+  await page.getByRole('button', { name: 'With friends', exact: true }).click()
+  await page.getByLabel('What should we call you?').fill('Invite Tester')
+  await page.getByRole('button', { name: 'Create a room' }).click()
+  const code = await page.getByTestId('room-code').innerText()
+  await page.getByRole('button', { name: 'Copy invite link' }).click()
+  await expect(page.getByLabel('Copy this link')).toHaveValue(
+    `http://127.0.0.1:4000/?room=${code}`,
+  )
+  await page.getByRole('button', { name: 'Drift home' }).click()
+  await expect(page.getByLabel('What should we call you?')).toBeVisible()
+  expect(
+    await page.evaluate(() => sessionStorage.getItem('drift.seat')),
+  ).toBeNull()
 })

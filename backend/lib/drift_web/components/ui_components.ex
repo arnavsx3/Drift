@@ -16,8 +16,8 @@ defmodule DriftWeb.UIComponents do
       class="m-auto max-w-360 px-16 max-[1150px]:px-9 max-[720px]:px-[23px] max-[380px]:px-4 min-[1400px]:px-[90px] motion-reduce:[&_*]:animate-none motion-reduce:[&_*]:transition-none [&_*:focus-visible]:outline-3 [&_*:focus-visible]:outline-offset-4 [&_*:focus-visible]:outline-[#8f9bff] [&_button]:cursor-pointer [&_button]:touch-manipulation [&_button:disabled]:cursor-default [&_input]:touch-manipulation [&_form_label]:mb-[9px] [&_form_label]:block [&_form_label]:text-[11px] [&_form_label]:font-[550] [&_form_label]:text-[#5c5e69] [&_form_input]:mb-4"
     >
       <header class="flex h-25 items-center gap-6 border-b border-line max-[720px]:h-20 max-[720px]:gap-3">
-        <a
-          href="/"
+        <button
+          type="button"
           phx-click="leave"
           class="inline-flex items-center gap-[9px] text-[35px] font-bold tracking-[-2px] max-[720px]:text-[31px]"
           aria-label="Drift home"
@@ -26,7 +26,7 @@ defmodule DriftWeb.UIComponents do
             <.icon name="TimerReset" size={23} />
           </span>
           <span>drift<span class="text-brand">.</span></span>
-        </a>
+        </button>
         <span class="ml-[5px] text-[12px] text-muted max-[720px]:hidden">
           A little game of timing.
         </span>

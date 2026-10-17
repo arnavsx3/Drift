@@ -1,5 +1,5 @@
 defmodule DriftWeb.GameLiveTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
   import Phoenix.ConnTest
   import Phoenix.LiveViewTest
   alias Drift.{Room, Rooms}

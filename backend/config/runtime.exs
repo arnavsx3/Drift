@@ -17,6 +17,10 @@ secret =
       :crypto.strong_rand_bytes(64) |> Base.encode64()
     end
 
+if byte_size(secret) < 64 do
+  raise "SECRET_KEY_BASE must contain at least 64 bytes (generate it with mix phx.gen.secret)."
+end
+
 config :drift, DriftWeb.Endpoint,
   server: config_env() != :test,
   secret_key_base: secret,
