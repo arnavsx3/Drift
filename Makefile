@@ -2,18 +2,18 @@
 
 setup:
 	cd backend && mix deps.get
-	cd frontend && npm ci
+	cd assets && npm ci && npm run build
 
 dev:
 	bash scripts/dev.sh
 
 check:
 	cd backend && mix format --check-formatted && mix compile --warnings-as-errors && mix test
-	cd frontend && npm run format:check && npm test && npm run build && npm audit --audit-level=high
+	cd assets && npm run format:check && npm run build && npm audit --audit-level=high
 
 e2e:
-	cd frontend && npm run test:e2e
+	cd assets && npm run build && npm run test:e2e
 
 build:
-	cd frontend && npm run build
+	cd assets && npm run build
 	cd backend && MIX_ENV=prod mix compile --warnings-as-errors

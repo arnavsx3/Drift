@@ -205,13 +205,16 @@ test('desktop layout fits and the game is ready to enter', async ({
   ).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
 })
 
-test('Cowboy serves the built app and rejects an untrusted browser origin', async ({
+test('Phoenix serves the built app and rejects an untrusted browser origin', async ({
   page,
   request,
 }) => {
-  const rejected = await request.get('http://127.0.0.1:4000/ws', {
-    headers: { origin: 'https://untrusted.example' },
-  })
+  const rejected = await request.get(
+    'http://127.0.0.1:4000/live/websocket?vsn=2.0.0',
+    {
+      headers: { origin: 'https://untrusted.example' },
+    },
+  )
   expect(rejected.status()).toBe(403)
   await page.goto('http://127.0.0.1:4000')
   await page.getByLabel('What should we call you?').fill('Built App Tester')

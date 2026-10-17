@@ -2,11 +2,12 @@
 backend/deps/
 backend/_build/
 backend/erl_crash.dump
-frontend/node_modules/
-frontend/dist/
-frontend/test-results/
-frontend/playwright-report/
-frontend/*.tsbuildinfo
+backend/priv/static/
+assets/node_modules/
+assets/dist/
+assets/test-results/
+assets/playwright-report/
+assets/*.tsbuildinfo
 .env
 .env.*
 !.env.example

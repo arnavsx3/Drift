@@ -1,7 +1,5 @@
 import Config
 
-config :drift, http_enabled: config_env() != :test
-
 config :phoenix, :json_library, Jason
 
 config :drift, DriftWeb.Endpoint,

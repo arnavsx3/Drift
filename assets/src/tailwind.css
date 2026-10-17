@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@source '../../backend/lib/drift_web';
 
 @theme {
   --color-brand: #3d4de1;

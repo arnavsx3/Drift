@@ -68,7 +68,7 @@ defmodule DriftWeb.ResultsComponents do
         <div
           :for={{p, i} <- Enum.with_index(@rows)}
           data-testid="result-row"
-          data-you={p.id == @player_id}
+          data-you={to_string(p.id == @player_id)}
           class="flex items-center gap-[13px] border-b border-[#edeef2] px-2.5 py-[15px] data-[you=true]:bg-[#f8f8fe]"
         >
           <span class="w-[22px] shrink-0 font-mono text-[10px] text-[#a9acc0]">

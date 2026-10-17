@@ -79,13 +79,13 @@ defmodule DriftWeb.HomeComponents do
             role="group"
             aria-label="Choose how to play"
           >
-            <button aria-pressed={@mode == "solo"} phx-click="mode" phx-value-mode="solo">
+            <button aria-pressed={to_string(@mode == "solo")} phx-click="mode" phx-value-mode="solo">
               <.icon name="TimerReset" size={15} /> Solo
             </button>
-            <button aria-pressed={@mode == "party"} phx-click="mode" phx-value-mode="party">
+            <button aria-pressed={to_string(@mode == "party")} phx-click="mode" phx-value-mode="party">
               <.icon name="Users" size={15} /> With friends
             </button>
-            <button aria-pressed={@mode == "join"} phx-click="mode" phx-value-mode="join">
+            <button aria-pressed={to_string(@mode == "join")} phx-click="mode" phx-value-mode="join">
               <.icon name="Radio" size={15} /> Join room
             </button>
           </div>

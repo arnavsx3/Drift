@@ -5,11 +5,9 @@ port = String.to_integer(System.get_env("PORT", "4000"))
 origins =
   System.get_env(
     "ALLOWED_ORIGINS",
-    "http://localhost:5173,http://127.0.0.1:5173,http://localhost:4000,http://127.0.0.1:4000"
+    "http://localhost:4000,http://127.0.0.1:4000"
   )
   |> String.split(",", trim: true)
-
-config :drift, port: port, origins: origins
 
 secret =
   System.get_env("SECRET_KEY_BASE") ||
@@ -20,6 +18,11 @@ secret =
     end
 
 config :drift, DriftWeb.Endpoint,
+  server: config_env() != :test,
   secret_key_base: secret,
-  http: [ip: {127, 0, 0, 1}, port: port],
+  http: [
+    ip: {127, 0, 0, 1},
+    port: port,
+    protocol_options: [invalid_response_headers: :error_terminate]
+  ],
   check_origin: origins

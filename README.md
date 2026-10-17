@@ -2,7 +2,7 @@
 
 **Trust your timing. Lose track of time.**
 
-A multiplayer timing game built with Elixir/OTP and React, where players compete to stop a hidden timer closest to the target.
+A multiplayer timing game built with Elixir/OTP and Phoenix LiveView, where players compete to stop a hidden timer closest to the target.
 
 ![Drift’s home screen](docs/screenshots/home.png)
 
@@ -38,7 +38,7 @@ make setup
 make dev
 ```
 
-Open **http://127.0.0.1:5173**. Ctrl+C stops both servers. No database, account, or API key is needed.
+Open **http://127.0.0.1:4000**. Ctrl+C stops the server and asset watcher. No database, account, or API key is needed.
 
 For a two-player test on one machine, use two different browser sessions, such as a normal and private window. Your current tab stores a private reconnect token; a new tab can join as another player.
 
@@ -48,33 +48,33 @@ For a two-player test on one machine, use two different browser sessions, such a
 | --- | --- |
 | **Elixir** | Game rules, room state, round coordination, and scoring |
 | **Erlang/OTP** | Runtime, lightweight processes, messaging, and supervision |
-| **Cowboy** | HTTP and WebSocket connections; serving the built frontend |
-| **React + TypeScript** | Lobby, game interface, results, and connection state |
-| **Tailwind CSS** | Utility-based styling, responsive layouts, and theme tokens |
-| **Vite** | Frontend development and production builds |
+| **Phoenix LiveView** | Screens, forms, player actions, and live UI updates in Elixir |
+| **Cowboy + Plug** | HTTP and WebSocket transport beneath Phoenix |
+| **Tailwind CSS** | Styling, responsive layouts, and theme tokens |
+| **Vite** | Builds CSS and the small browser hook bundle |
+| **JavaScript** | Animated clock, optional sound, clipboard, and per-tab seat storage |
+| **Playwright + TypeScript** | End-to-end browser tests |
 
-Each room runs as its own supervised Elixir `GenServer`. The server owns its clock, state transitions, and scores. React sends player actions and receives public snapshots over WebSockets. The backend uses Elixir's built-in JSON support.
+Each room runs as its own supervised Elixir `GenServer`. A Phoenix LiveView process handles each browser's interface and forwards actions to the room. The room owns its clock, state transitions, and scores; LiveView sends HTML updates over a WebSocket. Browser hooks animate the visible clock without sending a message on every frame.
 
 ## Repository structure
 
 ```text
 drift/
 ├── backend/
-│   ├── config/             # Runtime configuration
+│   ├── config/             # Runtime, endpoint, and origin configuration
 │   ├── lib/
 │   │   ├── drift/          # Room processes, game rules, and supervision
-│   │   └── drift_web/      # Cowboy HTTP and WebSocket handlers
-│   ├── test/               # Backend regression tests
+│   │   └── drift_web/      # Phoenix endpoint, LiveView, and Elixir UI components
+│   ├── test/               # Game rules and LiveView integration tests
+│   ├── priv/static/        # Generated browser assets (not committed)
 │   ├── mix.exs
 │   └── mix.lock
-├── frontend/
-│   ├── public/
-│   ├── src/
-│   │   ├── components/     # Shared interface components
-│   │   ├── features/       # Gameplay and results
-│   │   └── lib/            # Connection hook, types, and helpers
+├── assets/
+│   ├── src/                # Browser hooks and Tailwind theme
+│   ├── public/             # Favicon
 │   ├── e2e/                # Browser integration tests
-│   └── package.json
+│   └── package.json        # Vite and Playwright tooling
 ├── docs/                   # Architecture, protocol, and development
 ├── scripts/                # Combined local development command
 ├── .github/workflows/      # CI checks on pushes and pull requests
@@ -82,18 +82,20 @@ drift/
 └── README.md
 ```
 
+Elixir contains both the gameplay and the interface. TypeScript is used for browser tests. The repository does not alter GitHub's language classification; dependencies and generated bundles stay outside version control.
+
 ## Checks
 
 ```sh
 make check
 ```
 
-Runs backend and frontend formatting checks, compilation, unit tests, the frontend build, and the frontend dependency audit.
+Runs Elixir and asset formatting checks, compilation, game and LiveView tests, the asset build, and the npm dependency audit.
 
 For browser integration tests:
 
 ```sh
-cd frontend
+cd assets
 npx playwright install chromium
 cd ..
 make e2e
@@ -107,5 +109,7 @@ The browser suite exercises complete solo matches, rematches, multiplayer, priva
 - Scores use the time a stop message reaches the server. Network delay affects results, so use a stable connection. Drift is a casual game, not a latency-neutral competition.
 - Invite links created on localhost work on that machine. Playing across devices requires a reachable deployment and the appropriate allowed origin.
 - [Development notes](docs/development.md#dependency-advisory) document the current transitive Cowlib advisory and Cowboy's enabled response-header mitigation.
+
+Production mode requires `SECRET_KEY_BASE`; see the development guide for the build and run commands.
 
 Read the [development guide](docs/development.md), [architecture](docs/architecture.md), [WebSocket protocol](docs/protocol.md), and [contributing notes](CONTRIBUTING.md) for more.

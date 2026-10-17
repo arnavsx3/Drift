@@ -11,11 +11,6 @@ defmodule Drift.Application do
       DriftWeb.Endpoint
     ]
 
-    children =
-      if Application.get_env(:drift, :http_enabled, true),
-        do: children ++ [DriftWeb.Server],
-        else: children
-
     Supervisor.start_link(children, strategy: :one_for_one, name: Drift.Supervisor)
   end
 end

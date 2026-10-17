@@ -80,7 +80,7 @@ defmodule DriftWeb.MatchComponents do
               data-clock-key={"#{@room.code}:#{@room.round}"}
               data-phase={@room.phase}
               data-starts-in={@room.starts_in_ms || 0}
-              data-stopped={@stopped}
+              data-stopped={to_string(@stopped)}
             >
               <div id="clock-face" phx-update="ignore">
                 <.dial animated label="YOUR INTERNAL CLOCK AWAITS" value="?.??" />
