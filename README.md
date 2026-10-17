@@ -50,6 +50,7 @@ For a two-player test on one machine, use two different browser sessions, such a
 | **Erlang/OTP** | Runtime, lightweight processes, messaging, and supervision |
 | **Cowboy** | HTTP and WebSocket connections; serving the built frontend |
 | **React + TypeScript** | Lobby, game interface, results, and connection state |
+| **Tailwind CSS** | Utility-based styling, responsive layouts, and theme tokens |
 | **Vite** | Frontend development and production builds |
 
 Each room runs as its own supervised Elixir `GenServer`. The server owns its clock, state transitions, and scores. React sends player actions and receives public snapshots over WebSockets. The backend uses Elixir's built-in JSON support.

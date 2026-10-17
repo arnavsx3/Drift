@@ -1,0 +1,13 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-brand: #3d4de1;
+  --color-brand-dark: #2c3bc4;
+  --color-paper: #f6f5f0;
+  --color-ink: #272a33;
+  --color-muted: #7b7d86;
+  --color-line: #e5e4de;
+  --font-sans: 'DM Sans', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+  --font-display: 'Instrument Serif', Georgia, serif;
+}

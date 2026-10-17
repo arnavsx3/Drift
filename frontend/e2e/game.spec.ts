@@ -61,13 +61,21 @@ test('two players share a room, keep guesses private, reconnect, and transfer ho
     await expect(
       host.getByRole('button', { name: 'Waiting for a friend' }),
     ).toBeDisabled()
-    const code = await host.locator('.share-box > span').innerText()
+    const code = await host.getByTestId('room-code').innerText()
     await guest.goto(`/?room=${code}`)
     await guest.getByLabel('What should we call you?').fill('Guest Tester')
     await guest.getByRole('button', { name: 'Join the room' }).click()
     await expect(
       host.getByRole('button', { name: 'Start the match' }),
     ).toBeEnabled()
+    await expect(host.getByTestId('player-avatar').nth(0)).toHaveCSS(
+      'background-color',
+      'rgb(226, 228, 246)',
+    )
+    await expect(host.getByTestId('player-avatar').nth(1)).toHaveCSS(
+      'background-color',
+      'rgb(239, 224, 213)',
+    )
     await guest.reload()
     await expect(
       guest.getByRole('heading', { name: 'Gather your people.' }),
@@ -78,13 +86,21 @@ test('two players share a room, keep guesses private, reconnect, and transfer ho
     ).toBeEnabled()
     await host.getByRole('button', { name: 'STOP THE CLOCK' }).click()
     await expect(host.getByRole('button', { name: 'Locked in' })).toBeDisabled()
+    await expect(host.getByRole('button', { name: 'Locked in' })).toHaveCSS(
+      'background-color',
+      'rgb(233, 236, 228)',
+    )
+    await expect(host.getByRole('button', { name: 'Locked in' })).toHaveCSS(
+      'opacity',
+      '1',
+    )
     await expect(
       host.getByText('Waiting for the others. All guesses reveal together.'),
     ).toBeVisible()
-    await expect(host.locator('.result-list')).toHaveCount(0)
+    await expect(host.getByTestId('result-list')).toHaveCount(0)
     await guest.getByRole('button', { name: 'STOP THE CLOCK' }).click()
-    await expect(host.locator('.result-row')).toHaveCount(2)
-    await expect(guest.locator('.result-row')).toHaveCount(2)
+    await expect(host.getByTestId('result-row')).toHaveCount(2)
+    await expect(guest.getByTestId('result-row')).toHaveCount(2)
     await hostContext.close()
     await expect(
       guest.getByRole('button', { name: 'Next round' }),
@@ -118,6 +134,10 @@ test('mobile layout fits and the instructions dialog supports keyboard dismissal
   await page.setViewportSize({ width: 375, height: 812 })
   await page.goto('/')
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1 })).toHaveCSS(
+    'font-size',
+    '59px',
+  )
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -129,6 +149,11 @@ test('mobile layout fits and the instructions dialog supports keyboard dismissal
   })
   await page.getByRole('button', { name: 'How to play' }).click()
   await expect(page.getByRole('dialog')).toBeVisible()
+  await expect(page.getByRole('dialog')).toHaveCSS('border-radius', '16px')
+  await expect(page.getByRole('dialog').locator('ol')).toHaveCSS(
+    'list-style-type',
+    'decimal',
+  )
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog')).toHaveCount(0)
   await page.getByLabel('What should we call you?').fill('Mobile Tester')
@@ -151,6 +176,16 @@ test('desktop layout fits and the game is ready to enter', async ({
   await expect(
     page.getByRole('button', { name: 'Find your rhythm' }),
   ).toBeEnabled()
+  await expect(
+    page.getByRole('button', { name: 'Find your rhythm' }),
+  ).toHaveCSS('background-color', 'rgb(61, 77, 225)')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveCSS(
+    'font-size',
+    '82px',
+  )
+  await expect(
+    page.getByRole('button', { name: 'Solo', exact: true }),
+  ).toHaveCSS('background-color', 'rgb(255, 255, 255)')
   await page.evaluate(() => document.fonts.ready)
   expect(
     await page.evaluate(
@@ -161,6 +196,13 @@ test('desktop layout fits and the game is ready to enter', async ({
     path: testInfo.outputPath('drift-desktop.png'),
     fullPage: true,
   })
+  await page.getByRole('button', { name: 'With friends', exact: true }).click()
+  await expect(
+    page.getByRole('button', { name: 'With friends', exact: true }),
+  ).toHaveCSS('background-color', 'rgb(255, 255, 255)')
+  await expect(
+    page.getByRole('button', { name: 'Solo', exact: true }),
+  ).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
 })
 
 test('Cowboy serves the built app and rejects an untrusted browser origin', async ({

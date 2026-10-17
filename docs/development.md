@@ -38,6 +38,16 @@ npm run dev
 
 Vite proxies `/ws` and `/health` to the backend. Its fixed port prevents silently moving to a port rejected by the backend's origin check.
 
+## Frontend styling
+
+Tailwind CSS 4 is integrated through `@tailwindcss/vite` in `frontend/vite.config.ts`. Components use utility classes for layouts, responsive breakpoints, interaction states, and reduced-motion support.
+
+`frontend/src/tailwind.css` is the stylesheet entry: it contains only the Tailwind import and shared colour/font theme tokens. The old handwritten `style.css` has been removed. Fonts are loaded from the document head, with system fallbacks.
+
+Player colours use complete, static class strings in `frontend/src/lib/appearance.ts` so Tailwind can detect every option at build time. Avoid constructing utility names from partial strings. The results timeline passes its computed horizontal position through a CSS variable consumed by a Tailwind positioning utility.
+
+Prettier's Tailwind plugin sorts utility classes using the project's theme. Browser tests use dedicated test IDs for game results rather than styling class names.
+
 ## Verification
 
 ```sh
