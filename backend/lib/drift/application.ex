@@ -6,7 +6,9 @@ defmodule Drift.Application do
   def start(_type, _args) do
     children = [
       {Registry, keys: :unique, name: Drift.RoomRegistry},
-      {DynamicSupervisor, strategy: :one_for_one, name: Drift.RoomSupervisor, max_children: 500}
+      {DynamicSupervisor, strategy: :one_for_one, name: Drift.RoomSupervisor, max_children: 500},
+      {Phoenix.PubSub, name: Drift.PubSub},
+      DriftWeb.Endpoint
     ]
 
     children =

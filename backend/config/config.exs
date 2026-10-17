@@ -13,3 +13,5 @@ config :drift, DriftWeb.Endpoint,
   render_errors: [formats: [html: DriftWeb.ErrorHTML], layout: false]
 
 config :logger, :console, format: "$time $metadata[$level] $message\n"
+
+config :logger, level: if(config_env() == :test, do: :warning, else: :info)
