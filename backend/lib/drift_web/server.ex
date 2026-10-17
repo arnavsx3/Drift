@@ -6,9 +6,25 @@ defmodule DriftWeb.Server do
   end
 
   def start_link do
-    routes = [{:_, [{"/health", DriftWeb.Health, %{}}]}]
+    dist = Path.expand("../../../frontend/dist", __DIR__)
+
+    routes = [
+      {:_,
+       [
+         {"/health", DriftWeb.Health, %{}},
+         {"/ws", DriftWeb.Socket, %{}},
+         {"/assets/[...]", :cowboy_static, {:dir, Path.join(dist, "assets")}},
+         {"/favicon.svg", :cowboy_static, {:file, Path.join(dist, "favicon.svg")}},
+         {"/", :cowboy_static, {:file, Path.join(dist, "index.html")}}
+       ]}
+    ]
+
     dispatch = :cowboy_router.compile(routes)
     port = Application.fetch_env!(:drift, :port)
-    :cowboy.start_clear(:drift_http, [{:port, port}], %{env: %{dispatch: dispatch}})
+
+    :cowboy.start_clear(:drift_http, [{:port, port}], %{
+      env: %{dispatch: dispatch},
+      invalid_response_headers: :error_terminate
+    })
   end
 end
