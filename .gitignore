@@ -1,0 +1,14 @@
+# Dependencies and generated builds
+backend/deps/
+backend/_build/
+backend/erl_crash.dump
+frontend/node_modules/
+frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
+frontend/*.tsbuildinfo
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
